@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h2>Админ</h2>
+  {% if require_pass %}
+    <form method="post">
+      <label>Пароль администратора:<br><input type="password" name="admin_pass"></label>
+      <button type="submit">Войти</button>
+    </form>
+    <p>Пароль администратора хранится в переменной окружения <code>ADMIN_PASSWORD</code> или по умолчанию 'admin123'.</p>
+  {% else %}
+    <p><a href="/admin/export">Экспортировать CSV</a></p>
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Email</th><th>Phone</th><th>Дата</th>{% for q in questions %}<th>Q{{ loop.index }}</th>{% endfor %}</tr>
+      </thead>
+      <tbody>
+        {% for e in entries %}
+          <tr>
+            <td>{{ e.id }}</td>
+            <td>{{ e.email }}</td>
+            <td>{{ e.phone }}</td>
+            <td>{{ e.created_at }}</td>
+            {% for a in e.answers %}
+              <td>{{ a }}</td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+{% endblock %}
