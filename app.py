@@ -45,8 +45,8 @@ def init_db():
     )
     db.commit()
 
-@app.before_first_request
-def setup():
+# вызываем сразу при старте, чтобы база была готова
+with app.app_context():
     init_db()
 
 @app.route("/")
@@ -108,7 +108,7 @@ QUESTIONS = [
     "Какой у тебя любимый фильм?",
     "Какая у тебя любимая книга?",
     "Чем ты любишь заниматься в свободное время?",
-    "Какая у тебя любимая пора года?",
+    "Какая у тебя любимая время года?",
     "Какой вид спорта тебе нравится?",
     "О чём ты мечтаешь?",
 ]
@@ -130,11 +130,7 @@ def questions():
                     q1=?, q2=?, q3=?, q4=?, q5=?, q6=?, q7=?, q8=?, q9=?, q10=?
                 WHERE user_id=?
                 """,
-                (
-                    answers[0], answers[1], answers[2], answers[3], answers[4],
-                    answers[5], answers[6], answers[7], answers[8], answers[9],
-                    session["user_id"],
-                ),
+                (*answers, session["user_id"]),
             )
         else:
             db.execute(
@@ -142,11 +138,7 @@ def questions():
                 INSERT INTO answers (user_id, q1, q2, q3, q4, q5, q6, q7, q8, q9, q10)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (
-                    session["user_id"],
-                    answers[0], answers[1], answers[2], answers[3], answers[4],
-                    answers[5], answers[6], answers[7], answers[8], answers[9],
-                ),
+                (session["user_id"], *answers),
             )
         db.commit()
         row = db.execute("SELECT * FROM answers WHERE user_id=?", (session["user_id"],)).fetchone()
@@ -171,5 +163,5 @@ def admin():
     return render_template("admin.html", rows=rows)
 
 if __name__ == "__main__":
-    init_db()
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
