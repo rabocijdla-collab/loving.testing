@@ -15,38 +15,27 @@
           <h3 class="mb-3">Анкета</h3>
           <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('logout') }}">Выйти</a>
         </div>
-
-        {% if saved %}
-          <div class="alert alert-success">Ответы сохранены!</div>
-        {% endif %}
-
+        {% if saved %}<div class="alert alert-success">Ответы сохранены!</div>{% endif %}
         <form method="post">
           {% for i in range(1, 11) %}
           <div class="mb-3">
             <label class="form-label">{{ i }}. {{ questions[i-1] }}</label>
-            <input class="form-control" name="q{{ i }}" value="{{ prefill[i-1] if prefill else '' }}" required>
+            <input class="form-control" name="q{{ i }}" value="{{ prefill[i-1] }}" required>
           </div>
           {% endfor %}
-
-          <!-- Скрытое поле для координат -->
           <input type="hidden" name="location" id="location">
-
           <button class="btn btn-success">Сохранить</button>
         </form>
       </div>
     </div>
   </div>
 </div>
-
 <script>
-  // Сохраняем координаты в скрытое поле
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(function(pos) {
-      document.getElementById("location").value =
-        pos.coords.latitude + "," + pos.coords.longitude;
-    });
-  }
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(pos => {
+    document.getElementById('location').value = pos.coords.latitude + ',' + pos.coords.longitude;
+  });
+}
 </script>
-
 </body>
 </html>
