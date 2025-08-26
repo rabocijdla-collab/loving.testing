@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Survey App</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="/">Главная</a> |
+      {% if session.email %}
+        <span>{{ session.email }}</span> |
+        <a href="/survey">Опрос</a> |
+        <a href="/logout">Выход</a>
+      {% else %}
+        <a href="/login">Вход</a> |
+        <a href="/register">Регистрация</a>
+      {% endif %}
+      | <a href="/admin">Админ</a>
+    </nav>
+  </header>
+  <main>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul>
+          {% for m in messages %}
+            <li>{{ m }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
