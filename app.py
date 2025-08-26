@@ -19,11 +19,10 @@ def close_db(error=None):
     if db is not None:
         db.close()
 
+# --- Инициализация базы ---
 def init_db():
     db = get_db()
-    # Таблица пользователей
-    db.execute(
-        """
+    db.execute("""
         CREATE TABLE IF NOT EXISTS users(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -31,27 +30,35 @@ def init_db():
             phone TEXT NOT NULL,
             password TEXT NOT NULL
         );
-        """
-    )
-    # Таблица ответов с ip и location
-    db.execute(
-        """
+    """)
+    db.execute("""
         CREATE TABLE IF NOT EXISTS answers(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             q1 TEXT, q2 TEXT, q3 TEXT, q4 TEXT, q5 TEXT,
-            q6 TEXT, q7 TEXT, q8 TEXT, q9 TEXT, q10 TEXT,
-            ip TEXT, location TEXT,
-            FOREIGN KEY(user_id) REFERENCES users(id)
+            q6 TEXT, q7 TEXT, q8 TEXT, q9 TEXT, q10 TEXT
         );
-        """
-    )
+    """)
     db.commit()
 
-# сразу инициализируем
+def add_columns_if_missing():
+    db = get_db()
+    try:
+        db.execute("ALTER TABLE answers ADD COLUMN ip TEXT")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        db.execute("ALTER TABLE answers ADD COLUMN location TEXT")
+    except sqlite3.OperationalError:
+        pass
+    db.commit()
+
+# --- Запуск и проверка базы при старте ---
 with app.app_context():
     init_db()
+    add_columns_if_missing()
 
+# --- Маршруты ---
 @app.route("/")
 def home():
     if "user_id" in session:
@@ -123,10 +130,7 @@ def questions():
     db = get_db()
     if request.method == "POST":
         answers = [request.form.get(f"q{i}", "").strip() for i in range(1, 11)]
-
-        # берём IP
         ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-        # берём координаты, если пришли
         location = request.form.get("location", "")
 
         existing = db.execute(
@@ -145,8 +149,8 @@ def questions():
         else:
             db.execute(
                 """
-                INSERT INTO answers (user_id, q1, q2, q3, q4, q5, q6, q7, q8, q9, q10, ip, location)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO answers (user_id,q1,q2,q3,q4,q5,q6,q7,q8,q9,q10,ip,location)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (session["user_id"], *answers, ip, location),
             )
@@ -155,6 +159,7 @@ def questions():
         row = db.execute("SELECT * FROM answers WHERE user_id=?", (session["user_id"],)).fetchone()
         prefill = [row[f"q{i}"] if row else "" for i in range(1, 11)]
         return render_template("questions.html", questions=QUESTIONS, saved=True, prefill=prefill)
+
     row = db.execute("SELECT * FROM answers WHERE user_id=?", (session["user_id"],)).fetchone()
     prefill = [row[f"q{i}"] if row else "" for i in range(1, 11)]
     return render_template("questions.html", questions=QUESTIONS, prefill=prefill)
@@ -165,10 +170,10 @@ def admin():
     rows = db.execute(
         """
         SELECT u.name, u.email, u.phone,
-               a.q1, a.q2, a.q3, a.q4, a.q5, a.q6, a.q7, a.q8, a.q9, a.q10,
-               a.ip, a.location
+               a.q1,a.q2,a.q3,a.q4,a.q5,a.q6,a.q7,a.q8,a.q9,a.q10,
+               a.ip,a.location
         FROM users u
-        LEFT JOIN answers a ON a.user_id = u.id
+        LEFT JOIN answers a ON a.user_id=u.id
         ORDER BY u.id DESC
         """
     ).fetchall()
@@ -176,4 +181,3 @@ def admin():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-
