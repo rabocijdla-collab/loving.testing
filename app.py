@@ -39,13 +39,14 @@ def init_db():
             user_id INTEGER NOT NULL,
             q1 TEXT, q2 TEXT, q3 TEXT, q4 TEXT, q5 TEXT,
             q6 TEXT, q7 TEXT, q8 TEXT, q9 TEXT, q10 TEXT,
+            ip TEXT, location TEXT,
             FOREIGN KEY(user_id) REFERENCES users(id)
         );
         """
     )
     db.commit()
 
-# вызываем сразу при старте, чтобы база была готова
+# сразу инициализируем
 with app.app_context():
     init_db()
 
@@ -120,6 +121,12 @@ def questions():
     db = get_db()
     if request.method == "POST":
         answers = [request.form.get(f"q{i}", "").strip() for i in range(1, 11)]
+
+        # берем IP
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+        # берем координаты, если пришли
+        location = request.form.get("location", "")
+
         existing = db.execute(
             "SELECT id FROM answers WHERE user_id=?", (session["user_id"],)
         ).fetchone()
@@ -127,20 +134,22 @@ def questions():
             db.execute(
                 """
                 UPDATE answers SET
-                    q1=?, q2=?, q3=?, q4=?, q5=?, q6=?, q7=?, q8=?, q9=?, q10=?
+                    q1=?, q2=?, q3=?, q4=?, q5=?, q6=?, q7=?, q8=?, q9=?, q10=?,
+                    ip=?, location=?
                 WHERE user_id=?
                 """,
-                (*answers, session["user_id"]),
+                (*answers, ip, location, session["user_id"]),
             )
         else:
             db.execute(
                 """
-                INSERT INTO answers (user_id, q1, q2, q3, q4, q5, q6, q7, q8, q9, q10)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO answers (user_id, q1, q2, q3, q4, q5, q6, q7, q8, q9, q10, ip, location)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (session["user_id"], *answers),
+                (session["user_id"], *answers, ip, location),
             )
         db.commit()
+
         row = db.execute("SELECT * FROM answers WHERE user_id=?", (session["user_id"],)).fetchone()
         prefill = [row[f"q{i}"] if row else "" for i in range(1, 11)]
         return render_template("questions.html", questions=QUESTIONS, saved=True, prefill=prefill)
@@ -154,7 +163,8 @@ def admin():
     rows = db.execute(
         """
         SELECT u.name, u.email, u.phone,
-               a.q1, a.q2, a.q3, a.q4, a.q5, a.q6, a.q7, a.q8, a.q9, a.q10
+               a.q1, a.q2, a.q3, a.q4, a.q5, a.q6, a.q7, a.q8, a.q9, a.q10,
+               a.ip, a.location
         FROM users u
         LEFT JOIN answers a ON a.user_id = u.id
         ORDER BY u.id DESC
@@ -164,4 +174,5 @@ def admin():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
 
