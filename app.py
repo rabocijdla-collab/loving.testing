@@ -19,7 +19,6 @@ def close_db(error=None):
     if db is not None:
         db.close()
 
-# --- Инициализация базы ---
 def init_db():
     db = get_db()
     db.execute("""
@@ -36,7 +35,9 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             q1 TEXT, q2 TEXT, q3 TEXT, q4 TEXT, q5 TEXT,
-            q6 TEXT, q7 TEXT, q8 TEXT, q9 TEXT, q10 TEXT
+            q6 TEXT, q7 TEXT, q8 TEXT, q9 TEXT, q10 TEXT,
+            ip TEXT, location TEXT,
+            FOREIGN KEY(user_id) REFERENCES users(id)
         );
     """)
     db.commit()
@@ -53,12 +54,10 @@ def add_columns_if_missing():
         pass
     db.commit()
 
-# --- Запуск и проверка базы при старте ---
 with app.app_context():
     init_db()
     add_columns_if_missing()
 
-# --- Маршруты ---
 @app.route("/")
 def home():
     if "user_id" in session:
@@ -133,50 +132,39 @@ def questions():
         ip = request.headers.get("X-Forwarded-For", request.remote_addr)
         location = request.form.get("location", "")
 
-        existing = db.execute(
-            "SELECT id FROM answers WHERE user_id=?", (session["user_id"],)
-        ).fetchone()
+        existing = db.execute("SELECT id FROM answers WHERE user_id=?", (session["user_id"],)).fetchone()
         if existing:
-            db.execute(
-                """
+            db.execute("""
                 UPDATE answers SET
                     q1=?, q2=?, q3=?, q4=?, q5=?, q6=?, q7=?, q8=?, q9=?, q10=?,
                     ip=?, location=?
                 WHERE user_id=?
-                """,
-                (*answers, ip, location, session["user_id"]),
-            )
+            """, (*answers, ip, location, session["user_id"]))
         else:
-            db.execute(
-                """
-                INSERT INTO answers (user_id,q1,q2,q3,q4,q5,q6,q7,q8,q9,q10,ip,location)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
-                """,
-                (session["user_id"], *answers, ip, location),
-            )
+            db.execute("""
+                INSERT INTO answers (user_id, q1, q2, q3, q4, q5, q6, q7, q8, q9, q10, ip, location)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (session["user_id"], *answers, ip, location))
         db.commit()
-
         row = db.execute("SELECT * FROM answers WHERE user_id=?", (session["user_id"],)).fetchone()
-        prefill = [row[f"q{i}"] if row else "" for i in range(1, 11)]
+        prefill = [row[f"q{i}"] for i in range(1, 11)]
         return render_template("questions.html", questions=QUESTIONS, saved=True, prefill=prefill)
 
     row = db.execute("SELECT * FROM answers WHERE user_id=?", (session["user_id"],)).fetchone()
-    prefill = [row[f"q{i}"] if row else "" for i in range(1, 11)]
+    prefill = [row[f"q{i}"] for i in range(1, 11)] if row else [""]*10
     return render_template("questions.html", questions=QUESTIONS, prefill=prefill)
 
 @app.route("/admin")
 def admin():
     db = get_db()
-    rows = db.execute(
-        """
+    rows = db.execute("""
         SELECT u.name, u.email, u.phone,
-               a.q1,a.q2,a.q3,a.q4,a.q5,a.q6,a.q7,a.q8,a.q9,a.q10,
-               a.ip,a.location
+               a.q1, a.q2, a.q3, a.q4, a.q5, a.q6, a.q7, a.q8, a.q9, a.q10,
+               a.ip, a.location
         FROM users u
-        LEFT JOIN answers a ON a.user_id=u.id
+        LEFT JOIN answers a ON a.user_id = u.id
         ORDER BY u.id DESC
-        """
-    ).fetchall()
+    """).fetchall()
     return render_template("admin.html", rows=rows)
 
 if __name__ == "__main__":
