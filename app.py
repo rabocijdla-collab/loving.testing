@@ -21,6 +21,7 @@ def close_db(error=None):
 
 def init_db():
     db = get_db()
+    # Таблица пользователей
     db.execute(
         """
         CREATE TABLE IF NOT EXISTS users(
@@ -32,6 +33,7 @@ def init_db():
         );
         """
     )
+    # Таблица ответов с ip и location
     db.execute(
         """
         CREATE TABLE IF NOT EXISTS answers(
@@ -122,9 +124,9 @@ def questions():
     if request.method == "POST":
         answers = [request.form.get(f"q{i}", "").strip() for i in range(1, 11)]
 
-        # берем IP
+        # берём IP
         ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-        # берем координаты, если пришли
+        # берём координаты, если пришли
         location = request.form.get("location", "")
 
         existing = db.execute(
@@ -174,5 +176,4 @@ def admin():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-
 
